@@ -33,7 +33,7 @@ function reset() { Object.assign(GAME, { score: 0, lives: 3, streak: 0, elapsed:
 function updateHUD() { ui.score.textContent = String(GAME.score).padStart(4, '0'); ui.streak.textContent = GAME.streak; ui.lives.textContent = Array.from({ length: 3 }, (_, i) => i < GAME.lives ? '♥' : '♡').join(' '); ui.lives.setAttribute('aria-label', `${GAME.lives} lives`); ui.best.textContent = String(GAME.best).padStart(4, '0'); ui.time.textContent = formatTime(Math.max(0, GAME_TIME_LIMIT - GAME.elapsed)); }
 function formatTime(seconds) { const wholeSeconds = Math.ceil(seconds); return `${String(Math.floor(wholeSeconds / 60)).padStart(2, '0')}:${String(wholeSeconds % 60).padStart(2, '0')}`; }
 function announce(text, tone = '') { ui.notice.textContent = text; ui.notice.className = `announcement show ${tone}`; clearTimeout(announce.timer); announce.timer = setTimeout(() => ui.notice.className = 'announcement', 1800); }
-function addEntity(type) {
+function addEntity(type, immediatelyVisible = false) {
   const size = type === 'bomb' ? rand(28, 35) : type === 'dove' ? rand(27, 34) : type === 'gold' ? rand(30, 37) : rand(27, 35);
   const lower = type === 'bomb' ? .27 : .14;
   const upper = type === 'bomb' ? .65 : .76;
@@ -50,8 +50,11 @@ function addEntity(type) {
   const speed = (type === 'bomb' ? rand(150, 230) : fastTarget ? rand(390, 650) : rand(300, 480)) * motionScale;
   const vx = (destination[0] - start[0]) / distance * speed;
   const vy = (destination[1] - start[1]) / distance * speed;
+  // Give a new hunt an instantly visible opening flock. Later targets still
+  // enter naturally from beyond the edge of the range.
+  const openingProgress = immediatelyVisible ? rand(.14, .36) : 0;
   GAME.entities.push({
-    type, x: start[0], y: start[1], size, direction: vx >= 0 ? 1 : -1, vx, vy,
+    type, x: start[0] + (destination[0] - start[0]) * openingProgress, y: start[1] + (destination[1] - start[1]) * openingProgress, size, direction: vx >= 0 ? 1 : -1, vx, vy,
     wobble: rand(0, Math.PI * 2), sway: rand(28, 88) * motionScale, drift: rand(-90, 90) * motionScale,
     born: GAME.elapsed, featherTone: rand(-.08, .08), wingPhase: rand(0, Math.PI * 2)
   });
@@ -161,7 +164,7 @@ function update(dt) {
 function draw(dt = 0) { drawSky(); GAME.entities.forEach(drawEntity); drawParticles(dt); }
 function refreshStatus() { const doubleActive = GAME.elapsed < GAME.doubleUntil; const lockActive = GAME.elapsed < GAME.scoreLockUntil; if (lockActive) ui.event.textContent = 'SCORE LOCKED'; else if (doubleActive) ui.event.textContent = 'DOUBLE POINT RUN'; else ui.event.textContent = 'RANGE LIVE'; }
 function frame(timestamp) { if (!GAME.running) return; const dt = Math.min(.05, (timestamp - GAME.lastFrame) / 1000 || 0); GAME.lastFrame = timestamp; update(dt); draw(dt); refreshStatus(); if (GAME.running) requestAnimationFrame(frame); }
-function startGame() { reset(); for (let i = 0; i < DUCKS_PER_SPAWN; i++) addEntity('duck'); ui.overlay.classList.add('hidden'); GAME.running = true; GAME.lastFrame = performance.now(); ui.instruction.innerHTML = '<b>GOOD HUNTING.</b> Targets appear without warning and move fast. Orange ducks are worth 2 points; gold ducks activate 2×.'; announce('RANGE LIVE — HIT THE ORANGE DUCKS'); requestAnimationFrame(frame); }
+function startGame() { reset(); resize(); for (let i = 0; i < DUCKS_PER_SPAWN; i++) addEntity('duck', true); ui.overlay.classList.add('hidden'); GAME.running = true; GAME.lastFrame = performance.now(); ui.instruction.innerHTML = '<b>GOOD HUNTING.</b> Targets appear without warning and move fast. Orange ducks are worth 2 points; gold ducks activate 2×.'; announce('RANGE LIVE — HIT THE ORANGE DUCKS'); requestAnimationFrame(frame); }
 function endGame(reason = 'GAME OVER') { GAME.running = false; document.querySelector('.range-wrap').classList.add('game-over'); ui.overlay.classList.remove('hidden'); const timeExpired = reason === 'TIME UP'; const defeatGif = timeExpired ? '' : '<img class="game-over-gif" src="/assets/giphy.gif" alt="Animated surprised cat">'; ui.overlay.innerHTML = `<div class="overlay-card"><p class="kicker">${timeExpired ? '5 MINUTES COMPLETE' : 'RANGE CLOSED'}</p><h1>${timeExpired ? 'Time<br><i>up.</i>' : 'Game<br><i>over.</i>'}</h1>${defeatGif}<p>Final score: <b>${GAME.score}</b> &nbsp;•&nbsp; Best score: <b>${GAME.best}</b></p><button id="restart-button" class="primary-button" type="button">HUNT AGAIN <span>→</span></button><div class="rules"><div><b class="orange">●</b><span>FINAL SCORE</span><small>${GAME.score} POINTS</small></div><div><b class="danger">♥</b><span>LIVES LOST</span><small>3 OF 3</small></div><div><b class="gold">★</b><span>BEST SCORE</span><small>${GAME.best} POINTS</small></div><div><b class="dove-dot">●</b><span>TIP</span><small>DON'T HIT DOVES</small></div></div></div>`; $('#restart-button').addEventListener('click', () => { document.querySelector('.range-wrap').classList.remove('game-over'); startGame(); }); }
 canvas.addEventListener('pointermove', (event) => { const rect = canvas.getBoundingClientRect(); ui.crosshair.style.display='block';ui.crosshair.style.left=`${event.clientX-rect.left}px`;ui.crosshair.style.top=`${event.clientY-rect.top}px`; });
 canvas.addEventListener('pointerleave', () => ui.crosshair.style.display='none');
