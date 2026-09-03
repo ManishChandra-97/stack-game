@@ -1,0 +1,5 @@
+import { apiError } from './errors.js';
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+export function runId(req, _res, next) { if (!uuidPattern.test(req.params.runId)) return next(apiError('INVALID_RUN_ID', 'Run ID must be a UUID.')); next(); }
+export function startBody(req, _res, next) { if (!req.body || Array.isArray(req.body) || !['random','daily'].includes(req.body.mode)) return next(apiError('INVALID_MODE', 'Mode must be random or daily.')); next(); }
+export function choiceBody(req, _res, next) { if (!req.body || Array.isArray(req.body)) return next(apiError('INVALID_CHOICE', 'Choice must be SAFE, PUSH, or YOLO.')); const forbidden = ['score','success','probability','outcome','hiddenState','roll']; if (forbidden.some((key) => Object.hasOwn(req.body, key))) return next(apiError('UNEXPECTED_AUTHORITATIVE_FIELD', 'Client cannot supply authoritative game fields.')); if (!['SAFE','PUSH','YOLO'].includes(req.body.choice)) return next(apiError('INVALID_CHOICE', 'Choice must be SAFE, PUSH, or YOLO.')); next(); }

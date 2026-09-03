@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0a1f36">
+  <title>Duck &amp; Cover — Arcade Hunt</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <main class="game-shell">
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="Duck and Cover home"><span class="brand-mark">◆</span> DUCK <em>&amp;</em> COVER</a>
+      <div class="tag">ARCADE RANGE <span>•</span> SEASON 01</div>
+    </header>
+    <section class="hud" aria-label="Game status">
+      <div class="hud-item score-card"><span>SCORE</span><strong id="score">0000</strong></div>
+      <div class="hud-item"><span>STREAK</span><strong id="streak">0</strong></div>
+      <div class="hud-item lives-card"><span>LIVES</span><strong id="lives" aria-label="3 lives">♥ ♥ ♥</strong></div>
+      <div class="hud-item"><span>BEST</span><strong id="best">0000</strong></div>
+    </section>
+    <section class="mission-bar" aria-live="polite">
+      <div class="event-status"><span class="pulse"></span><span id="event-label">RANGE READY</span></div>
+      <div class="timers"><span>TIME <strong id="time-remaining">05:00</strong></span><span>5-MINUTE HUNT</span></div>
+    </section>
+    <section class="range-wrap" aria-label="Duck shooting range">
+      <canvas id="range" aria-label="Duck shooting game. Click the ducks; avoid bombs and white doves." role="img"></canvas>
+      <div id="announcement" class="announcement" aria-live="assertive"></div><div id="crosshair" aria-hidden="true"></div>
+      <div id="start-overlay" class="overlay"><div class="overlay-card">
+        <p class="kicker">WELCOME TO THE RANGE</p><h1>Keep your<br><i>eyes</i> open.</h1>
+        <p>Hit the flying ducks, build points, and earn your way back to safety.</p>
+        <button id="start-button" class="primary-button" type="button">START HUNT <span>→</span></button>
+        <div class="rules">
+          <div><b class="orange">●</b><span>DUCK</span><small>+2 POINTS</small></div><div><b class="gold">★</b><span>GOLD DUCK</span><small>ACTIVATES 2×</small></div>
+          <div><b class="danger">✹</b><span>BOMB</span><small>DON'T SHOOT</small></div><div><b class="dove-dot">●</b><span>WHITE DOVE</span><small>DON'T SHOOT</small></div>
+        </div>
+      </div></div>
+      <div class="range-caption"><span>CLICK / TAP TARGETS</span><span>+2 PER DUCK</span></div>
+    </section>
+    <section class="bottom-info"><p id="instruction"><b>GOOD HUNTING.</b> Targets appear without warning and move fast. Orange ducks are worth 2 points; gold ducks activate 2×.</p><p class="life-note">Reach each <b>150-POINT MILESTONE</b> to restore one life, up to three.</p></section>
+  </main>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
