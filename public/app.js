@@ -56,7 +56,7 @@ function addEntity(type, immediatelyVisible = false) {
   GAME.entities.push({
     type, x: start[0] + (destination[0] - start[0]) * openingProgress, y: start[1] + (destination[1] - start[1]) * openingProgress, size, direction: vx >= 0 ? 1 : -1, vx, vy,
     wobble: rand(0, Math.PI * 2), sway: rand(28, 88) * motionScale, drift: rand(-90, 90) * motionScale,
-    born: GAME.elapsed, featherTone: rand(-.08, .08), wingPhase: rand(0, Math.PI * 2)
+    born: GAME.elapsed, hasEnteredRange: immediatelyVisible, featherTone: rand(-.08, .08), wingPhase: rand(0, Math.PI * 2)
   });
 }
 function burst(x, y, color, amount = 10) { for (let i = 0; i < amount; i++) GAME.particles.push({ x, y, dx: rand(-72, 72), dy: rand(-88, 22), life: rand(.35, .7), size: rand(2, 5), color }); }
@@ -155,10 +155,12 @@ function update(dt) {
     e.x += (e.vx + Math.sin(GAME.elapsed * 9 + e.wobble) * e.sway) * dt;
     e.y += (e.vy + Math.cos(GAME.elapsed * 7 + e.wobble) * e.sway + e.drift) * dt;
     e.direction = e.vx >= 0 ? 1 : -1;
-    // Do not time out targets. A bird is removed only once its full silhouette
-    // has travelled past one of the range edges.
-    const margin = e.size * 1.65;
-    return e.x > -margin && e.x < W() + margin && e.y > -margin && e.y < H() + margin;
+    // Do not cull a target while it is still entering. Later flocks begin
+    // outside the canvas, so a generic off-screen cleanup would otherwise
+    // discard them before their first visible frame.
+    if (e.x >= 0 && e.x <= W() && e.y >= 0 && e.y <= H()) e.hasEnteredRange = true;
+    const margin = e.size * 2.25;
+    return !e.hasEnteredRange || (e.x > -margin && e.x < W() + margin && e.y > -margin && e.y < H() + margin);
   });
 }
 function draw(dt = 0) { drawSky(); GAME.entities.forEach(drawEntity); drawParticles(dt); }
