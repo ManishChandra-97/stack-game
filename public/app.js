@@ -3,8 +3,10 @@ const ctx = canvas.getContext('2d');
 const $ = (selector) => document.querySelector(selector);
 const GAME_TIME_LIMIT = 5 * 60;
 const DUCKS_PER_SPAWN = 3;
-// Send a three-bird flock every half second for a steady range.
-const DUCK_SPAWN_INTERVAL = 0.5;
+const BIRD_SPAWN_RATE = 0.7;
+const DOVE_SPAWN_RATE = 0.8;
+// Send a three-bird flock at 70% of the former overall bird rate.
+const DUCK_SPAWN_INTERVAL = 0.5 / BIRD_SPAWN_RATE;
 // Birds were already eased to 80% of the original prototype speed. Take a
 // further 30% off that value so targets stay readable across large screens.
 const DUCK_SPEED_MULTIPLIER = 0.56;
@@ -16,9 +18,9 @@ const rand = (min, max) => min + Math.random() * (max - min);
 const W = () => canvas.clientWidth;
 const H = () => canvas.clientHeight;
 const scoreTier = () => Math.floor(GAME.score / SCORE_TIER_SIZE);
-// Spawn frequency, rather than a burst size, scales with score. This keeps the
-// pressure continuous: at each 50-point tier doves occur 2× as often, bombs
-// 1.5× as often, and gold targets 1.2× as often.
+// Spawn frequency, rather than a burst size, scales with score. Doves retain
+// their per-tier progression at 80% of their prior rate; ducks and gold ducks
+// use 70% of their former rate. Bomb timing is unchanged.
 function occurrenceMultiplier(type) {
   const tier = scoreTier();
   if (type === 'dove') return 2 ** tier;
@@ -26,7 +28,11 @@ function occurrenceMultiplier(type) {
   if (type === 'gold') return 1.2 ** tier;
   return 1;
 }
-function nextSpawnDelay(type, min, max) { return rand(min, max) / occurrenceMultiplier(type); }
+function nextSpawnDelay(type, min, max) {
+  const birdRate = type === 'bomb' ? 1 : BIRD_SPAWN_RATE;
+  const doveRate = type === 'dove' ? DOVE_SPAWN_RATE : 1;
+  return rand(min, max) / (occurrenceMultiplier(type) * birdRate * doveRate);
+}
 
 function resize() { const ratio = Math.min(window.devicePixelRatio || 1, 2); canvas.width = Math.round(W() * ratio); canvas.height = Math.round(H() * ratio); ctx.setTransform(ratio, 0, 0, ratio, 0, 0); }
 function reset() { Object.assign(GAME, { score: 0, lives: 3, streak: 0, elapsed: 0, running: false, doubleUntil: 0, scoreLockUntil: 0, nextDuck: DUCK_SPAWN_INTERVAL, nextDouble: nextSpawnDelay('gold', 4, 10), nextDove: nextSpawnDelay('dove', 7, 16), nextBomb: null, entities: [], particles: [], lastFrame: 0, nextLifeAt: 150 }); updateHUD(); }
