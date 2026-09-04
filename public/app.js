@@ -2,8 +2,8 @@ const canvas = document.querySelector('#range');
 const ctx = canvas.getContext('2d');
 const $ = (selector) => document.querySelector(selector);
 const GAME_TIME_LIMIT = 5 * 60;
-const DUCKS_PER_SPAWN = 4;
-// Send a four-bird flock every half second for a denser range.
+const DUCKS_PER_SPAWN = 3;
+// Send a three-bird flock every half second for a steady range.
 const DUCK_SPAWN_INTERVAL = 0.5;
 // Birds were already eased to 80% of the original prototype speed. Take a
 // further 30% off that value so targets stay readable across large screens.
