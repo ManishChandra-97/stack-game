@@ -13,7 +13,7 @@ const DUCK_SPEED_MULTIPLIER = 0.56;
 const DOVE_SPEED_MULTIPLIER = 0.8;
 const SCORE_TIER_SIZE = 50;
 const ui = { score: $('#score'), streak: $('#streak'), lives: $('#lives'), best: $('#best'), time: $('#time-remaining'), event: $('#event-label'), notice: $('#announcement'), overlay: $('#start-overlay'), instruction: $('#instruction'), crosshair: $('#crosshair') };
-const GAME = { score: 0, lives: 3, streak: 0, elapsed: 0, running: false, doubleUntil: 0, scoreLockUntil: 0, nextDuck: .35, nextDouble: 0, nextDove: 0, nextBomb: null, entities: [], particles: [], lastFrame: 0, best: Number(localStorage.getItem('duck-cover-best') || 0), nextLifeAt: 150 };
+const GAME = { score: 0, lives: 3, streak: 0, elapsed: 0, running: false, weapon: 'rifle', doubleUntil: 0, scoreLockUntil: 0, nextDuck: .35, nextDouble: 0, nextDove: 0, nextBomb: null, entities: [], particles: [], slashes: [], lastFrame: 0, best: Number(localStorage.getItem('duck-cover-best') || 0), nextLifeAt: 150 };
 const rand = (min, max) => min + Math.random() * (max - min);
 const W = () => canvas.clientWidth;
 const H = () => canvas.clientHeight;
@@ -35,7 +35,7 @@ function nextSpawnDelay(type, min, max) {
 }
 
 function resize() { const ratio = Math.min(window.devicePixelRatio || 1, 2); canvas.width = Math.round(W() * ratio); canvas.height = Math.round(H() * ratio); ctx.setTransform(ratio, 0, 0, ratio, 0, 0); }
-function reset() { Object.assign(GAME, { score: 0, lives: 3, streak: 0, elapsed: 0, running: false, doubleUntil: 0, scoreLockUntil: 0, nextDuck: DUCK_SPAWN_INTERVAL, nextDouble: nextSpawnDelay('gold', 4, 10), nextDove: nextSpawnDelay('dove', 7, 16), nextBomb: null, entities: [], particles: [], lastFrame: 0, nextLifeAt: 150 }); updateHUD(); }
+function reset() { Object.assign(GAME, { score: 0, lives: 3, streak: 0, elapsed: 0, running: false, weapon: 'rifle', doubleUntil: 0, scoreLockUntil: 0, nextDuck: DUCK_SPAWN_INTERVAL, nextDouble: nextSpawnDelay('gold', 4, 10), nextDove: nextSpawnDelay('dove', 7, 16), nextBomb: null, entities: [], particles: [], slashes: [], lastFrame: 0, nextLifeAt: 150 }); ui.crosshair.classList.remove('sword'); updateHUD(); }
 function updateHUD() { ui.score.textContent = String(GAME.score).padStart(4, '0'); ui.streak.textContent = GAME.streak; ui.lives.textContent = Array.from({ length: 3 }, (_, i) => i < GAME.lives ? '♥' : '♡').join(' '); ui.lives.setAttribute('aria-label', `${GAME.lives} lives`); ui.best.textContent = String(GAME.best).padStart(4, '0'); ui.time.textContent = formatTime(Math.max(0, GAME_TIME_LIMIT - GAME.elapsed)); }
 function formatTime(seconds) { const wholeSeconds = Math.ceil(seconds); return `${String(Math.floor(wholeSeconds / 60)).padStart(2, '0')}:${String(wholeSeconds % 60).padStart(2, '0')}`; }
 function announce(text, tone = '') { ui.notice.textContent = text; ui.notice.className = `announcement show ${tone}`; clearTimeout(announce.timer); announce.timer = setTimeout(() => ui.notice.className = 'announcement', 1800); }
@@ -87,6 +87,21 @@ function hit(entity) {
   if (type === 'gold') { GAME.doubleUntil = Math.max(GAME.doubleUntil, GAME.elapsed) + rand(7, 15); GAME.nextBomb = GAME.elapsed + nextSpawnDelay('bomb', 2, 7); burst(x, y, '#ffbf3f', 18); scoreFloat(x, y, '2× ACTIVE', '#ffdf6b'); ui.instruction.innerHTML = '<b>DOUBLE RUN ACTIVE.</b> Every duck is worth 2×. Another gold duck extends the run; it never stacks to 4×.'; announce('GOLD DUCK HIT — 2× ACTIVE'); return; }
   if (type === 'bomb') { GAME.doubleUntil = 0; GAME.nextBomb = null; GAME.streak = 0; ui.instruction.innerHTML = '<b>BOMB HIT.</b> Your streak and double run are gone. Keep hunting — white doves are still off limits.'; loseLife('BOMB HIT — STREAK LOST, LIFE LOST'); return; }
   if (type === 'dove') { GAME.scoreLockUntil = GAME.elapsed + 20; ui.instruction.innerHTML = '<b>DOVE HIT.</b> No points can be earned for 20 seconds. Your double timer, if active, keeps counting down.'; loseLife('DOVE HIT — NO SCORE FOR 20 SEC'); }
+}
+function toggleWeapon() {
+  GAME.weapon = GAME.weapon === 'rifle' ? 'sword' : 'rifle';
+  const swordEquipped = GAME.weapon === 'sword';
+  ui.crosshair.classList.toggle('sword', swordEquipped);
+  ui.instruction.innerHTML = swordEquipped ? '<b>SWORD EQUIPPED.</b> Left-click to slash through nearby birds. Right-click to switch back to the rifle.' : '<b>RIFLE EQUIPPED.</b> Left-click a target to shoot. Right-click whenever you want the sword.';
+  announce(swordEquipped ? 'SWORD EQUIPPED — LEFT-CLICK TO SLASH' : 'RIFLE EQUIPPED');
+}
+function slash(x, y) {
+  const reach = Math.max(105, Math.min(W(), H()) * .2);
+  GAME.slashes.push({ x, y, reach, angle: rand(-.4, .4), life: .24 });
+  const targets = GAME.entities.filter(entity => entity.type !== 'bomb' && Math.hypot(x - entity.x, y - entity.y) <= reach + entity.size);
+  targets.forEach(hit);
+  if (!targets.length) burst(x, y, '#e7eff0', 5);
+  announce(targets.length ? `SWORD SLASH — ${targets.length} BIRD${targets.length === 1 ? '' : 'S'} HIT` : 'SWORD SLASH');
 }
 function drawSky() {
   const horizon = H() * .54;
@@ -144,6 +159,17 @@ function drawDuck(e) {
 }
 function drawBomb(e) { const {x,y,size:s}=e; drawGroundShadow(x,y,s);ctx.save();ctx.translate(x,y);const metal=ctx.createRadialGradient(-s*.25,-s*.3,2,0,0,s*.86);metal.addColorStop(0,'#5a7180');metal.addColorStop(.45,'#273849');metal.addColorStop(1,'#101d2e');ctx.fillStyle=metal;ctx.shadowColor='#102b32a8';ctx.shadowBlur=7;ctx.shadowOffsetY=3;ctx.beginPath();ctx.arc(0,0,s*.77,0,Math.PI*2);ctx.fill();ctx.shadowColor='transparent';ctx.strokeStyle='#d9e1dc';ctx.lineWidth=2;ctx.stroke();ctx.strokeStyle='#263241';ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(s*.2,-s*.65);ctx.quadraticCurveTo(s*.48,-s*1.2,s*.8,-s*.94);ctx.stroke();ctx.fillStyle='#ffbf3f';ctx.shadowColor='#ffbf3f';ctx.shadowBlur=8;ctx.beginPath();ctx.arc(s*.84,-s*.98,4,0,Math.PI*2);ctx.fill();ctx.shadowColor='transparent';ctx.fillStyle='#f4f0db';ctx.font=`bold ${s*.75}px sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('!',0,2);ctx.restore(); }
 function drawEntity(e) { if (e.type === 'bomb') drawBomb(e); else drawDuck(e); }
+function drawSlashes(dt) {
+  GAME.slashes = GAME.slashes.filter(slash => {
+    slash.life -= dt;
+    if (slash.life <= 0) return false;
+    ctx.save(); ctx.translate(slash.x, slash.y); ctx.rotate(slash.angle); ctx.globalAlpha = Math.min(1, slash.life * 5);
+    ctx.strokeStyle = '#f8f2cf'; ctx.shadowColor = '#173a42'; ctx.shadowBlur = 8; ctx.lineWidth = 8; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(-slash.reach * .55, slash.reach * .22); ctx.quadraticCurveTo(0, -slash.reach * .38, slash.reach * .62, slash.reach * .05); ctx.stroke();
+    ctx.strokeStyle = '#ffbf3f'; ctx.shadowBlur = 0; ctx.lineWidth = 2; ctx.stroke(); ctx.restore();
+    return true;
+  });
+}
 function drawParticles(dt) { GAME.particles = GAME.particles.filter(p => { p.life -= dt; if (p.life <= 0) return false; ctx.save();ctx.globalAlpha=Math.min(1,p.life*2);ctx.fillStyle=p.color;if(p.float){ctx.font=`800 ${p.size}px "DM Mono",monospace`;ctx.textAlign='center';ctx.fillText(p.text,p.x,p.y+(1-p.life)*-38);}else{p.x+=p.dx*dt;p.y+=p.dy*dt;p.dy+=120*dt;ctx.fillRect(p.x,p.y,p.size,p.size);}ctx.restore();return true; }); }
 function update(dt) {
   GAME.elapsed = Math.min(GAME.elapsed + dt, GAME_TIME_LIMIT);
@@ -169,12 +195,13 @@ function update(dt) {
     return !e.hasEnteredRange || (e.x > -margin && e.x < W() + margin && e.y > -margin && e.y < H() + margin);
   });
 }
-function draw(dt = 0) { drawSky(); GAME.entities.forEach(drawEntity); drawParticles(dt); }
+function draw(dt = 0) { drawSky(); GAME.entities.forEach(drawEntity); drawSlashes(dt); drawParticles(dt); }
 function refreshStatus() { const doubleActive = GAME.elapsed < GAME.doubleUntil; const lockActive = GAME.elapsed < GAME.scoreLockUntil; if (lockActive) ui.event.textContent = 'SCORE LOCKED'; else if (doubleActive) ui.event.textContent = 'DOUBLE POINT RUN'; else ui.event.textContent = 'RANGE LIVE'; }
 function frame(timestamp) { if (!GAME.running) return; const dt = Math.min(.05, (timestamp - GAME.lastFrame) / 1000 || 0); GAME.lastFrame = timestamp; update(dt); draw(dt); refreshStatus(); if (GAME.running) requestAnimationFrame(frame); }
 function startGame() { reset(); resize(); for (let i = 0; i < DUCKS_PER_SPAWN; i++) addEntity('duck', true); ui.overlay.classList.add('hidden'); GAME.running = true; GAME.lastFrame = performance.now(); ui.instruction.innerHTML = '<b>GOOD HUNTING.</b> Targets appear without warning and move fast. Orange ducks are worth 2 points; gold ducks activate 2×.'; announce('RANGE LIVE — HIT THE ORANGE DUCKS'); requestAnimationFrame(frame); }
 function endGame(reason = 'GAME OVER') { GAME.running = false; document.querySelector('.range-wrap').classList.add('game-over'); ui.overlay.classList.remove('hidden'); const timeExpired = reason === 'TIME UP'; const defeatGif = timeExpired ? '' : '<img class="game-over-gif" src="/assets/giphy.gif" alt="Animated surprised cat">'; ui.overlay.innerHTML = `<div class="overlay-card"><p class="kicker">${timeExpired ? '5 MINUTES COMPLETE' : 'RANGE CLOSED'}</p><h1>${timeExpired ? 'Time<br><i>up.</i>' : 'Game<br><i>over.</i>'}</h1>${defeatGif}<p>Final score: <b>${GAME.score}</b> &nbsp;•&nbsp; Best score: <b>${GAME.best}</b></p><button id="restart-button" class="primary-button" type="button">HUNT AGAIN <span>→</span></button><div class="rules"><div><b class="orange">●</b><span>FINAL SCORE</span><small>${GAME.score} POINTS</small></div><div><b class="danger">♥</b><span>LIVES LOST</span><small>3 OF 3</small></div><div><b class="gold">★</b><span>BEST SCORE</span><small>${GAME.best} POINTS</small></div><div><b class="dove-dot">●</b><span>TIP</span><small>DON'T HIT DOVES</small></div></div></div>`; $('#restart-button').addEventListener('click', () => { document.querySelector('.range-wrap').classList.remove('game-over'); startGame(); }); }
 canvas.addEventListener('pointermove', (event) => { const rect = canvas.getBoundingClientRect(); ui.crosshair.style.display='block';ui.crosshair.style.left=`${event.clientX-rect.left}px`;ui.crosshair.style.top=`${event.clientY-rect.top}px`; });
 canvas.addEventListener('pointerleave', () => ui.crosshair.style.display='none');
-canvas.addEventListener('pointerdown', (event) => { if (!GAME.running) return; const rect = canvas.getBoundingClientRect();const x=event.clientX-rect.left,y=event.clientY-rect.top; const target=[...GAME.entities].reverse().find(e => Math.hypot(x-e.x,y-e.y)<e.size*1.15); if (target) hit(target); else burst(x,y,'#eef8f4',3); });
+canvas.addEventListener('contextmenu', (event) => { event.preventDefault(); if (GAME.running) toggleWeapon(); });
+canvas.addEventListener('pointerdown', (event) => { if (!GAME.running || event.button !== 0) return; const rect = canvas.getBoundingClientRect();const x=event.clientX-rect.left,y=event.clientY-rect.top; if (GAME.weapon === 'sword') { slash(x, y); return; } const target=[...GAME.entities].reverse().find(e => Math.hypot(x-e.x,y-e.y)<e.size*1.15); if (target) hit(target); else burst(x,y,'#eef8f4',3); });
 $('#start-button').addEventListener('click', startGame); window.addEventListener('resize', () => { resize(); draw(); }); resize(); draw(); updateHUD();

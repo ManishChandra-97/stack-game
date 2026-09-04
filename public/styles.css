@@ -3,3 +3,4 @@
 @media(prefers-reduced-motion:reduce){*,*:after,*:before{animation:none!important;transition:none!important}}
 .game-over-gif{display:block;width:min(170px,45vw);aspect-ratio:320/310;object-fit:cover;margin:-8px auto 16px;border:2px solid var(--ink);box-shadow:4px 4px 0 var(--gold)}
 .range-wrap canvas{position:relative;z-index:1}
+#crosshair.sword{width:48px;height:48px;border:0;border-radius:0;box-shadow:none;color:#fff8e2;font:900 43px/48px Georgia,serif;text-align:center;transform:translate(-50%,-50%) rotate(-25deg);text-shadow:0 2px 0 #17465a,0 0 12px #17465a}#crosshair.sword:before{content:"⚔";position:static;width:auto;height:auto;background:none;transform:none}#crosshair.sword:after{display:none}.rules{grid-template-columns:repeat(5,1fr)}.sword-icon{color:#6e8690;text-shadow:0 1px 0 #fff}@media(max-width:650px){.rules{grid-template-columns:repeat(2,1fr)}}
